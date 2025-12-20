@@ -8,3 +8,7 @@ react-router.config.ts - enables ssr(server side rendering)
 tsconfig.json - this will help typescript enable type safety acroos the porject
 docker file - vite generates by default and helps host your app inside of a docker container
 .dokerignore & .gitignore - to ensure no confidential file gets pushed to github
+
+what is Zustand -
+in this project it is used as wraper and a cache for puter
+Zustand is a small, fast, and simple state management solution for React.
