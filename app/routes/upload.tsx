@@ -1,8 +1,13 @@
 import {type FormEvent, useState} from 'react'
 import Navbar from "~/components/Navbar";
 import FileUploader from "~/components/FileUploader";
+import {usePuterStore} from "~/lib/puter";
+import {useNavigate} from "react-router";
+
 
 const Upload = () => {
+    const { auth, isLoading, fs, ai, kv} = usePuterStore();
+    const navigate = useNavigate();
     const [isProcessing, setIsProcessing] = useState(false);
     const [statusText, setStatusText] = useState('');
     const [file, setFile] = useState<File | null>(null)
@@ -16,13 +21,20 @@ const Upload = () => {
                    companyName,
                    jobTitle,
                    jobDescription,
-                   file
+                   file,
         } : {
             companyName: string,
             jobTitle: string,
             jobDescription: string,
             file: File }) => {
+                setIsProcessing(true);
+                setStatusText('Uploading the file...');
+                const uploadedFIle = await fs.upload([file]);
 
+                if(!uploadedFIle)return setStatusText('Error: failed to upload');
+
+                setStatusText('Converting to image...');
+                const imageFile = await convertPDFToImage(file);
         }
 
     const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
