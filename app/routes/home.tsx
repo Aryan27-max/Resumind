@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
-import ResumeCard from "~/components/ResumeCard";
-import { usePuterStore } from "~/lib/puter";
-import Navbar from "../components/Navbar";
-import type { Route } from "./+types/home";
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import ResumeCard from '~/components/ResumeCard';
+import { usePuterStore } from '~/lib/puter';
+import Navbar from '../components/Navbar';
+import type { Route } from './+types/home';
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Resumind" },
-    { name: "description", content: "Smart feedback for your dream job" },
+    { title: 'Resumind' },
+    { name: 'description', content: 'Smart feedback for your dream job' },
   ];
 }
 
@@ -21,24 +21,47 @@ export default function Home() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      navigate("/auth?next=/");
+      navigate('/auth?next=/');
     }
-  }, [auth.isAuthenticated]);
+  }, [auth.isAuthenticated, navigate]);
+
+  const loadResumes = useCallback(async () => {
+    setLoadingResumes(true);
+    try {
+      const resumes = (await kv.list('resume:*', true)) as KVItem[];
+
+      const parsedResumes = resumes
+        ?.map((resume) => {
+          try {
+            const data = JSON.parse(resume.value);
+            return data as Resume;
+          } catch (parseError) {
+            console.error('Failed to parse resume data:', parseError);
+            return null;
+          }
+        })
+        .filter((resume): resume is Resume => resume !== null);
+
+      setResumes(parsedResumes || []);
+    } catch (error) {
+      console.error('Failed to load resumes:', error);
+      setResumes([]);
+    } finally {
+      setLoadingResumes(false);
+    }
+  }, [kv]);
 
   useEffect(() => {
-    const loadResumes = async () => {
-      setLoadingResumes(true);
-      const resumes = (await kv.list("resume:*", true)) as KVItem[];
-
-      const parsedResumes = resumes?.map((resume) => {
-        const data = JSON.parse(resume.value);
-        return data as Resume;
-      });
-      setResumes(parsedResumes || []);
-      setLoadingResumes(false);
-    };
     loadResumes();
-  }, []);
+  }, [loadResumes]);
+
+  const handleDeleteResume = useCallback(
+    async (id: string) => {
+      // The ResumeCard component handles deletion, we just need to reload
+      await loadResumes();
+    },
+    [loadResumes],
+  );
 
   return (
     <main className="bg-[url('/images/bg-main.svg')] bg-cover">
@@ -60,16 +83,13 @@ export default function Home() {
         {resumes.length > 0 && !loadingResumes && (
           <div className="resumes-section">
             {resumes.map((resume) => (
-              <ResumeCard key={resume.id} resume={resume} />
+              <ResumeCard key={resume.id} resume={resume} onDelete={handleDeleteResume} />
             ))}
           </div>
         )}
         {!loadingResumes && resumes.length === 0 && (
           <div className="flex flex-col items-center justify-center mt-10 gap-4">
-            <Link
-              to="/upload"
-              className="primary-button w-fit text-xl font-semibold"
-            >
+            <Link to="/upload" className="primary-button w-fit text-xl font-semibold">
               Upload Resume
             </Link>
           </div>

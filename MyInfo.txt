@@ -4,6 +4,8 @@ this is for my knowledge not related to the project -
 file structure knowledge -
 
 vite.config.ts - contains vite config for the project
+  - includes vite-plugin-static-copy to automatically copy PDF.js worker from node_modules
+  - ensures worker version always matches the library version
 react-router.config.ts - enables ssr(server side rendering)
 tsconfig.json - this will help typescript enable type safety acroos the porject
 docker file - vite generates by default and helps host your app inside of a docker container
@@ -12,3 +14,9 @@ docker file - vite generates by default and helps host your app inside of a dock
 what is Zustand -
 in this project it is used as wraper and a cache for puter
 Zustand is a small, fast, and simple state management solution for React.
+
+PDF.js Setup -
+- Uses vite-plugin-static-copy to automatically copy worker file during build
+- Worker file is copied from node_modules/pdfjs-dist/build/pdf.worker.min.mjs
+- This ensures version matching and is production-ready
+- No manual copying needed - handled automatically by Vite

@@ -1,3 +1,5 @@
+import { ERROR_MESSAGES, PDF_CONVERSION } from './constants';
+
 export interface PdfConversionResult {
   imageUrl: string;
   file: File | null;
@@ -14,49 +16,88 @@ async function loadPdfJs(): Promise<any> {
 
   isLoading = true;
   // @ts-expect-error - pdfjs-dist/build/pdf.mjs is not a module
-  loadPromise = import("pdfjs-dist/build/pdf.mjs").then((lib) => {
-    // Set the worker source to use local file
-    lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-    pdfjsLib = lib;
-    isLoading = false;
-    return lib;
-  });
+  loadPromise = import('pdfjs-dist/build/pdf.mjs')
+    .then((lib) => {
+      // Worker file is automatically copied from node_modules by vite-plugin-static-copy
+      // This ensures version matching between library and worker
+      lib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
+      pdfjsLib = lib;
+      isLoading = false;
+      return lib;
+    })
+    .catch((err) => {
+      isLoading = false;
+      loadPromise = null;
+      console.error('Failed to load PDF.js:', err);
+      throw new Error(
+        `Failed to load PDF.js library: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
   return loadPromise;
 }
 
-export async function convertPdfToImage(
-  file: File
-): Promise<PdfConversionResult> {
+export async function convertPdfToImage(file: File): Promise<PdfConversionResult> {
   try {
-    const lib = await loadPdfJs();
+    // Validate file
+    if (!file || file.type !== 'application/pdf') {
+      return {
+        imageUrl: '',
+        file: null,
+        error: ERROR_MESSAGES.INVALID_FILE_TYPE,
+      };
+    }
 
+    // Load PDF.js library
+    const lib = await loadPdfJs();
+    if (!lib) {
+      return {
+        imageUrl: '',
+        file: null,
+        error: ERROR_MESSAGES.FAILED_TO_LOAD_PDF,
+      };
+    }
+
+    // Convert file to array buffer and load PDF
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+
+    // Get first page
     const page = await pdf.getPage(1);
 
-    const viewport = page.getViewport({ scale: 4 });
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
+    // Create canvas and context
+    const viewport = page.getViewport({ scale: PDF_CONVERSION.SCALE_FACTOR });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      return {
+        imageUrl: '',
+        file: null,
+        error: ERROR_MESSAGES.CANVAS_NOT_SUPPORTED,
+      };
+    }
 
     canvas.width = viewport.width;
     canvas.height = viewport.height;
 
-    if (context) {
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = "high";
-    }
+    // Configure context
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
 
-    await page.render({ canvasContext: context!, viewport }).promise;
+    // Render PDF page to canvas
+    await page.render({ canvasContext: context, viewport }).promise;
 
+    // Convert canvas to blob
     return new Promise((resolve) => {
       canvas.toBlob(
         (blob) => {
           if (blob) {
             // Create a File from the blob with the same name as the pdf
-            const originalName = file.name.replace(/\.pdf$/i, "");
+            const originalName = file.name.replace(/\.pdf$/i, '');
             const imageFile = new File([blob], `${originalName}.png`, {
-              type: "image/png",
+              type: PDF_CONVERSION.IMAGE_FORMAT,
             });
 
             resolve({
@@ -65,21 +106,23 @@ export async function convertPdfToImage(
             });
           } else {
             resolve({
-              imageUrl: "",
+              imageUrl: '',
               file: null,
-              error: "Failed to create image blob",
+              error: ERROR_MESSAGES.FAILED_TO_CREATE_BLOB,
             });
           }
         },
-        "image/png",
-        1.0
-      ); // Set quality to maximum (1.0)
+        PDF_CONVERSION.IMAGE_FORMAT,
+        PDF_CONVERSION.IMAGE_QUALITY,
+      );
     });
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('PDF conversion error:', err);
     return {
-      imageUrl: "",
+      imageUrl: '',
       file: null,
-      error: `Failed to convert PDF: ${err}`,
+      error: `Failed to convert PDF to image: ${errorMessage}`,
     };
   }
 }
