@@ -5,6 +5,7 @@ import {usePuterStore} from "~/lib/puter";
 import {useNavigate} from "react-router";
 import {convertPdfToImage} from "~/lib/pdf2img"
 import {generateUUID} from "~/lib/utils"
+import {prepareInstructions} from "../../constants";
 
 
 const Upload = () => {
@@ -59,9 +60,18 @@ const Upload = () => {
 
                 const = await ai.feedback(
                     uploadedFile.path,
+                    prepareInstructions({ jobTitle, jobDescription })
+            )
+            const if (!feedback) return setStatusText('Error: Failed to analyse resume');
 
+            const feedbackText = typeof feedback.message.content === 'string'
+                ? feedback.message.content
+                : feedback.message.content[0].text;
 
-            );
+            data.feedback = JSON.parse(feedbackText);
+            await kv.set(`resume:${uuid}`, JSON.stringify(data));
+            setStatusText('Analysing Complete, redirecting...');
+            console.log(data);
         }
 
     const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
