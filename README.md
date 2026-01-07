@@ -83,6 +83,14 @@ Your application will be available at `http://localhost:5173`.
 
 ---
 
+
+## 📄 License
+
+This project is licensed under the **MIT License**.
+
+---
+
+
 # MADE WITH ❤ BY [Aryan27-max](https://github.com/Aryan27-max)
 
 
